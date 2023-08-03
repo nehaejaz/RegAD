@@ -8,8 +8,10 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 CLASS_NAMES = [
-    'bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile',
+    #  'bracket_black', 'bracket_brown', 'bracket_white', 'connector', 'metal_plate', 'tubes'
+      'bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile',
     'toothbrush', 'transistor', 'wood', 'zipper'
+
 ]
 
 class FSAD_Dataset_train(Dataset):
@@ -234,9 +236,18 @@ class FSAD_Dataset_test(Dataset):
             for image_dir_one in data_img[img_type]:
                 support_dir_one = []
                 if not ("/.DS_Store" in image_dir_one):
-                    query_dir.append(image_dir_one)
+                    query_dir.append(image_dir_one)                    
                     query_mask_dir = image_dir_one.replace('test', 'ground_truth')
+
                     query_mask_dir = query_mask_dir[:-4] + '_mask.png'
+                    # # Extract filename and extension
+                    # base_name = os.path.basename(query_mask_dir)
+                    # file_number, extension = os.path.splitext(base_name)
+                    # #Always keep filename as 000.png
+                    # new_filename = '000.png'
+
+                    # # Create new path
+                    # query_mask_dir = os.path.join(os.path.dirname(query_mask_dir), file_number, new_filename)
                     query_mask.append(query_mask_dir)
                     for k in range(self.shot):
                         random_choose = random.randint(0, (len(data_train) - 1))

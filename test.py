@@ -33,7 +33,7 @@ def main():
     parser = argparse.ArgumentParser(description='RegAD on MVtec')
     parser.add_argument('--obj', type=str, default='hazelnut')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./mvtec_loco_anomaly_detection/')
+    parser.add_argument('--data_path', type=str, default='./MPDD/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -68,7 +68,7 @@ def main():
 
     print('Loading Datasets')
     kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
-    args.obj = "breakfast_box"
+    args.obj = "connector"
     test_dataset = FSAD_Dataset_test(args.data_path, class_name=args.obj, is_train=False, resize=args.img_size, shot=args.shot)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
@@ -76,6 +76,7 @@ def main():
     # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
 
     print('Start Testing:')
+    start_time = time.time()
     image_auc_list = []
     pixel_auc_list = []
     for inference_round in range(args.inferences):
@@ -88,10 +89,46 @@ def main():
         min_anomaly_score = scores.min()
         scores = (scores - min_anomaly_score) / (max_anomaly_score - min_anomaly_score)
         """The shape of scores is [83,224,224]"""
+        
 
         # calculate image-level ROC AUC score
         img_scores = scores.reshape(scores.shape[0], -1).max(axis=1)
         gt_list = np.asarray(gt_list)
+        print("img_scores", img_scores)
+        print("gt_list", gt_list)
+
+        
+        #save test images
+        index = 0
+
+        for img in test_imgs:
+            # print(img.shape) 
+            # Transpose from [channels, height, width] to [height, width, channels]
+            img = np.transpose(img, (1, 2, 0))
+
+            # The number you want to write
+            ground_truth_lab = gt_list[index]
+            score_num = img_scores[index]
+
+            fig, ax = plt.subplots()
+
+            # Visualize the image
+            ax.imshow(img)
+
+            # Add text at the bottom left (x=0, y=image height)
+            ax.text(0, img.shape[0], str(ground_truth_lab), color='black', fontsize=16, weight='bold', verticalalignment='bottom')
+            
+            # Add text at the bottom right (x=image width, y=image height)
+            ax.text(img.shape[1], img.shape[0], str(score_num), color='red', fontsize=16, weight='bold', verticalalignment='bottom', horizontalalignment='right')
+
+            # Visualize the image
+            plt.imshow(img)
+
+            # Save the image
+            print("results/"+str(inference_round)+'/'+str(index)+'.png')
+            fig.savefig("results/"+str(inference_round)+'/'+str(index)+'.png') 
+            index +=1    
+            
         img_roc_auc = roc_auc_score(gt_list, img_scores)
         image_auc_list.append(img_roc_auc)
         print("img_roc_auc", img_roc_auc)
@@ -99,20 +136,24 @@ def main():
 
         # calculate per-pixel level ROCAUC
         gt_mask = np.asarray(gt_mask_list)
+        print("gt_mask",gt_mask.shape)
+        
         gt_mask = (gt_mask > 0.5).astype(np.int_)
         per_pixel_rocauc = roc_auc_score(gt_mask.flatten(), scores.flatten())
         pixel_auc_list.append(per_pixel_rocauc)
         print("per_pixel_rocauc", per_pixel_rocauc)
         print("pixel_auc_list", pixel_auc_list)
 
-
-
+    end_time = time.time()
+    inference_time = end_time - start_time
     image_auc_list = np.array(image_auc_list)
     pixel_auc_list = np.array(pixel_auc_list)
     mean_img_auc = np.mean(image_auc_list, axis = 0)
     mean_pixel_auc = np.mean(pixel_auc_list, axis = 0)
     print('Img-level AUC:',mean_img_auc)
     print('Pixel-level AUC:', mean_pixel_auc)
+    print(f"Inference time: {inference_time} seconds")
+
 
 
 def test(args, models, cur_epoch, test_loader, **kwargs):
@@ -199,8 +240,9 @@ def test(args, models, cur_epoch, test_loader, **kwargs):
         rotate90_img = rot90_img(support_img, angle)
         augment_support_img = torch.cat([augment_support_img, rotate90_img], dim=0)
     augment_support_img = augment_support_img[torch.randperm(augment_support_img.size(0))]
-    print("augment_support_img",augment_support_img.shape)
+    # print("augment_support_img",augment_support_img.shape)
     # torch version
+        
     with torch.no_grad():
         support_feat = STN(augment_support_img.to(device))
     support_feat = torch.mean(support_feat, dim=0, keepdim=True)
@@ -248,16 +290,24 @@ def test(args, models, cur_epoch, test_loader, **kwargs):
     score_map_list = []
 
     for (query_img, support_img, mask, y) in tqdm(test_loader):
+        #change height and width to 224x224 if not already
+        height = query_img.shape[2]
+        width = query_img.shape[3]
+        
+        if height and width != 224:
+            print("changed dim")
+            query_img = F.interpolate(query_img, size=new_size, mode='bilinear', align_corners=False)     #reshape image to 224x224
+            mask = F.interpolate(mask, size=new_size, mode='bilinear', align_corners=False)     #reshape image to 224x224
+            
         query_imgs.extend(query_img.cpu().detach().numpy())
         gt_list.extend(y.cpu().detach().numpy())
         mask_list.extend(mask.cpu().detach().numpy())
-        height = query_img.shape[2]
-        width = query_img.shape[3]
+       
 
-        #change height and width to 224x224 if not already
-        if height and width != 224:
-            query_img = F.interpolate(query_img, size=new_size, mode='bilinear', align_corners=False)     #reshape image to 224x224
-        print("query_img",query_img.shape)
+        
+      
+
+        # print("query_img",query_img.shape)
         
         # model prediction
         query_feat = STN(query_img.to(device))
@@ -320,62 +370,6 @@ def test(args, models, cur_epoch, test_loader, **kwargs):
     
     #Put it on CPU and convert to numpy
     score_map = anomaly_map.cpu().numpy()
-
-
-    # Plot it using Matplotlib
-    # plt.imshow(score_map, cmap='gray')
-    # plt.colorbar()
-    # plt.savefig('datasets/anomaly_map.png')
-    # plt.close()
-    # exit()
-      
-    
-    # calculate distance matrix
-    # B, C, H, W = embedding_vectors.size()
-    # embedding_vectors = embedding_vectors.view(B, C, H * W)
-    # dist_list = []
-
-
-    # for i in range(H * W):
-    #     mean = train_outputs[0][:, i]
-    #     conv_inv = torch.linalg.inv(train_outputs[1][:, :, i])
-    #     dist = [mahalanobis_torch(sample[:, i], mean, conv_inv) for sample in embedding_vectors]
-    #     dist_list.append(dist)
-        
-    # list_tensor = []
-    # for dis in dist_list:
-    #     # print(type(dis))
-    #     for d in dis:
-    #         d = d.cpu()
-    #         list_tensor.append(d.numpy())
-
-    # array_list = stacked_tensor.numpy()
-    # list_tensor = [array.reshape(1, -1).tolist() for array in list_tensor]
-
-    # # # Define the CSV file path
-    # csv_file = 'distances.csv'
-
-    # # # Write the data to the CSV file
-    # with open(csv_file, 'w', newline='') as file:
-    #     writer = csv.writer(file)
-    #     writer.writerows(list_tensor)
-
-    # print("CSV file created successfully.")
-
-    """shape of dist_list is (83,56,56)"""
-    # dist_list = torch.tensor(dist_list).transpose(1, 0).reshape(B, H, W)
-    # print("dist_list",dist_list.shape)
-
-    # upsample
-    """shape of score_map is (83,224,224)"""
-    # score_map = F.interpolate(dist_list.unsqueeze(1), size=query_img.size(2), mode='bilinear',
-    #                           align_corners=False).squeeze().numpy()
-  
-    # print("score_map",score_map.shape)
-
-    # apply gaussian smoothing on the score map
-    # for i in range(score_map.shape[0]):
-    #     score_map[i] = gaussian_filter(score_map[i], sigma=4)
         
     """To Generate the Heat Maps. Basically the score_map
     is the score of the patchesvwhere the anomalies are present."""   
@@ -387,15 +381,6 @@ def test(args, models, cur_epoch, test_loader, **kwargs):
 
     print(score_map.shape) 
 
-    # for i in range(score_map.shape[0]):
-    #     image = score_map[i, :, :]
-    #     plt.imshow(image, cmap='gray')
-    #     plt.colorbar()
-    #     plt.savefig("rounds/"+str(cur_epoch)+"/" + str(i)+".jpg")
-    #     plt.close()
-    #     print("image", image.shape)
-
-    """The shape of score_map is (83, 224, 224)"""
     return score_map, query_imgs, gt_list, mask_list
 
 def nearest_neighbors(embedding, n_neighbors):
