@@ -59,7 +59,11 @@ def main():
     PRED = Predictor().to(device)
     
     # load models
-    CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    #For custom model bring them from the logs folder
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    print(CKPT_name)
+    # exit()
+    # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
     STN.load_state_dict(model_CKPT['STN'])
     ENC.load_state_dict(model_CKPT['ENC'])
@@ -68,7 +72,7 @@ def main():
 
     print('Loading Datasets')
     kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
-    args.obj = "connector"
+
     test_dataset = FSAD_Dataset_test(args.data_path, class_name=args.obj, is_train=False, resize=args.img_size, shot=args.shot)
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
@@ -101,33 +105,33 @@ def main():
         #save test images
         index = 0
 
-        for img in test_imgs:
-            # print(img.shape) 
-            # Transpose from [channels, height, width] to [height, width, channels]
-            img = np.transpose(img, (1, 2, 0))
+        # for img in test_imgs:
+        #     # print(img.shape) 
+        #     # Transpose from [channels, height, width] to [height, width, channels]
+        #     img = np.transpose(img, (1, 2, 0))
 
-            # The number you want to write
-            ground_truth_lab = gt_list[index]
-            score_num = img_scores[index]
+        #     # The number you want to write
+        #     ground_truth_lab = gt_list[index]
+        #     score_num = img_scores[index]
 
-            fig, ax = plt.subplots()
+        #     fig, ax = plt.subplots()
 
-            # Visualize the image
-            ax.imshow(img)
+        #     # Visualize the image
+        #     ax.imshow(img)
 
-            # Add text at the bottom left (x=0, y=image height)
-            ax.text(0, img.shape[0], str(ground_truth_lab), color='black', fontsize=16, weight='bold', verticalalignment='bottom')
+        #     # Add text at the bottom left (x=0, y=image height)
+        #     ax.text(0, img.shape[0], str(ground_truth_lab), color='black', fontsize=16, weight='bold', verticalalignment='bottom')
             
-            # Add text at the bottom right (x=image width, y=image height)
-            ax.text(img.shape[1], img.shape[0], str(score_num), color='red', fontsize=16, weight='bold', verticalalignment='bottom', horizontalalignment='right')
+        #     # Add text at the bottom right (x=image width, y=image height)
+        #     ax.text(img.shape[1], img.shape[0], str(score_num), color='red', fontsize=16, weight='bold', verticalalignment='bottom', horizontalalignment='right')
 
-            # Visualize the image
-            plt.imshow(img)
+        #     # Visualize the image
+        #     plt.imshow(img)
 
-            # Save the image
-            print("results/"+str(inference_round)+'/'+str(index)+'.png')
-            fig.savefig("results/"+str(inference_round)+'/'+str(index)+'.png') 
-            index +=1    
+        #     # Save the image
+        #     print("results/"+str(inference_round)+'/'+str(index)+'.png')
+        #     fig.savefig("results/"+str(inference_round)+'/'+str(index)+'.png') 
+        #     index +=1    
             
         img_roc_auc = roc_auc_score(gt_list, img_scores)
         image_auc_list.append(img_roc_auc)
