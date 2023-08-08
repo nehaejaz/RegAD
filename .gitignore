@@ -1,7 +1,13 @@
 /MVTec/
+/mvtec_loco_anomaly_detection/
+/MPDD/
+/results/
 /rounds/
 /save_checkpoints/
 /support_set/
 support_set.tar
 __pycache__/
 *.pt
+/rounds/
+/old rounds/
+/logs_mpdd/
