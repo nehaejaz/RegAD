@@ -20,6 +20,8 @@ import warnings
 import csv
 import torchvision.transforms as transforms
 from PIL import Image
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
@@ -29,7 +31,7 @@ def main():
     parser = argparse.ArgumentParser(description='RegAD on MVtec')
     parser.add_argument('--obj', type=str, default='hazelnut')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./MVTec/')
+    parser.add_argument('--data_path', type=str, default='./MPDD/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -55,7 +57,8 @@ def main():
     PRED = Predictor().to(device)
 
     # load models
-    CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
     STN.load_state_dict(model_CKPT['STN'])
     ENC.load_state_dict(model_CKPT['ENC'])
@@ -68,21 +71,41 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
     print('Loading Fixed Support Set')
-    fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
+    # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
 
     print('Start Testing:')
+    start_time = time.time()
+
     image_auc_list = []
     pixel_auc_list = []
     for inference_round in range(args.inferences):
         print('Round {}:'.format(inference_round))
-        scores_list, test_imgs, gt_list, gt_mask_list = test(args, models, inference_round, fixed_fewshot_list, test_loader, **kwargs)
+        scores_list, test_imgs, gt_list, gt_mask_list = test(args, models, inference_round, test_loader, **kwargs)
         scores = np.asarray(scores_list)
 
         # Normalization
         max_anomaly_score = scores.max()
         min_anomaly_score = scores.min()
         scores = (scores - min_anomaly_score) / (max_anomaly_score - min_anomaly_score)
-       
+        print(scores.shape)
+        # Let's display the first 5 maps
+        index = 0
+        for img in test_imgs:
+            orig_image = img.transpose(1, 2, 0)
+
+            # Plot the original image
+            plt.imshow(orig_image)  # Assuming the original image is grayscale
+            
+            # Overlay the heatmap. Use the 'alpha' parameter for transparency.
+            plt.imshow(scores[index], cmap='hot', alpha=0.5)  
+            plt.title(f"Overlayed Anomaly Map")
+            plt.axis('off')  # Hide axis
+            plt.colorbar()
+            plt.savefig(f"heatmaps/{str(inference_round)}/{index}.png") 
+            plt.close() 
+            index +=1  
+
+
         # calculate image-level ROC AUC score
         img_scores = scores.reshape(scores.shape[0], -1).max(axis=1)
         gt_list = np.asarray(gt_list)
@@ -98,17 +121,50 @@ def main():
         pixel_auc_list.append(per_pixel_rocauc)
         print("per_pixel_rocauc", per_pixel_rocauc)
         print("pixel_auc_list", pixel_auc_list)
+        
+        """save test images for classification """
+        index = 0
+
+        for img in test_imgs:
+            # Transpose from [channels, height, width] to [height, width, channels]
+            img = np.transpose(img, (1, 2, 0))
+
+            # The number you want to write
+            ground_truth_lab = gt_list[index]
+            score_num = img_scores[index]
+
+            fig, ax = plt.subplots()
+
+            # Visualize the image
+            ax.imshow(img)
+
+            # Add text at the bottom left (x=0, y=image height)
+            ax.text(0, img.shape[0], str(ground_truth_lab), color='white', fontsize=16, weight='bold', verticalalignment='bottom')
+            
+            # Add text at the bottom right (x=image width, y=image height)
+            ax.text(img.shape[1], img.shape[0], str(score_num), color='red', fontsize=16, weight='bold', verticalalignment='bottom', horizontalalignment='right')
+
+            # Visualize the image
+            plt.imshow(img)
+
+            # Save the image
+            print("results/"+str(inference_round)+'/'+str(index)+'.png')
+            fig.savefig("results/"+str(inference_round)+'/'+str(index)+'.png') 
+            plt.close(fig)
+            index +=1  
 
 
-
+    end_time = time.time()
+    inference_time = end_time - start_time
     image_auc_list = np.array(image_auc_list)
     pixel_auc_list = np.array(pixel_auc_list)
     mean_img_auc = np.mean(image_auc_list, axis = 0)
     mean_pixel_auc = np.mean(pixel_auc_list, axis = 0)
     print('Img-level AUC:',mean_img_auc)
     print('Pixel-level AUC:', mean_pixel_auc)
+    print(f"Inference time: {inference_time} seconds")
 
-def test(args, models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
+def test(args, models, cur_epoch, test_loader, **kwargs):
     STN = models[0]
     ENC = models[1]
     PRED = models[2]
@@ -119,8 +175,63 @@ def test(args, models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
 
     train_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
     test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
+    
+    support_imgs=[]
+    for (query_img, support_img, mask, y) in tqdm(test_loader):
+        #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
+        for i in range(10):
+            numpy_array = np.stack([t.numpy() for t in support_img])
+            numpy_array = numpy_array.squeeze(1)
+            support_imgs.append(numpy_array)
+        break;
+    
+    new_size = [224, 224]
 
-    support_img = fixed_fewshot_list[cur_epoch]
+    #The shape support_img should be [2,3,224,224] [k, C, H, W]
+    support_img = support_imgs[cur_epoch]
+    # support_img = fixed_fewshot_list[cur_epoch]
+    support_img = torch.from_numpy(support_img)
+    print("support_img", support_img.shape)
+    
+    single_img = support_img[0]
+    
+    print(single_img.shape)
+    # Transpose the tensor to (224, 224, 3) for visualization
+    img = single_img.permute(1, 2, 0)
+
+    # Convert the tensor to numpy array
+    img_np = img.detach().numpy()
+
+    # Display the image
+    # plt.imshow(img_np)
+    # plt.imsave('new.png', img_np)
+    
+    height = support_img.shape[2]
+    width = support_img.shape[3]
+
+    #change heught and width to 224x224 if not already
+    if height and width != 224:
+        support_img = F.interpolate(support_img, size=new_size, mode='bilinear', align_corners=False)     #reshape image to 224x224
+
+    
+    # for img in support_img:
+    #     print(img.shape)
+    #     # Normalize the image tensor to [0, 1] if it isn't already (skip this step if not necessary)
+    #     img = (img - img.min()) / (img.max() - img.min())
+
+    #     # Transpose the tensor to (224, 224, 3) for visualization
+    #     img = img.permute(1, 2, 0)
+
+    #     # Convert the tensor to numpy array
+    #     img_np = img.detach().numpy()
+
+    #     # Display the image
+    #     plt.imshow(img_np)
+    #     plt.imsave('resized_image.png', img_np)
+
+    augment_support_img = support_img
+
+    # support_img = fixed_fewshot_list[cur_epoch]
     
     augment_support_img = support_img
     # rotate img with small angle

@@ -8,8 +8,9 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 CLASS_NAMES = [
-    'bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile',
-    'toothbrush', 'transistor', 'wood', 'zipper'
+    'bracket_black', 'bracket_brown', 'bracket_white', 'connector', 'metal_plate', 'tubes'
+    # 'bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile',
+    # 'toothbrush', 'transistor', 'wood', 'zipper'
 ]
 
 class FSAD_Dataset_train(Dataset):
