@@ -23,6 +23,7 @@ import csv
 import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
@@ -33,7 +34,7 @@ def main():
     parser = argparse.ArgumentParser(description='RegAD on MVtec')
     parser.add_argument('--obj', type=str, default='hazelnut')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./MPDD/')
+    parser.add_argument('--data_path', type=str, default='./MVTec/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -60,10 +61,9 @@ def main():
     
     # load models
     #For custom model bring them from the logs folder
-    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
-    print(CKPT_name)
-    # exit()
-    # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    # CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+
+    CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
     STN.load_state_dict(model_CKPT['STN'])
     ENC.load_state_dict(model_CKPT['ENC'])
@@ -94,7 +94,21 @@ def main():
         scores = (scores - min_anomaly_score) / (max_anomaly_score - min_anomaly_score)
         """The shape of scores is [83,224,224]"""
         
+        index = 0
+        for img in test_imgs:
+            orig_image = img.transpose(1, 2, 0)
 
+            # Plot the original image
+            plt.imshow(orig_image)  # Assuming the original image is grayscale
+
+            # Overlay the heatmap. Use the 'alpha' parameter for transparency.
+            plt.imshow(scores[index], cmap='hot', alpha=0.5)  
+            plt.title(f"Overlayed Anomaly Map")
+            plt.axis('off')  # Hide axis
+            plt.colorbar()
+            plt.savefig(f"heatmaps/{str(inference_round)}/{index}.png") 
+            plt.close() 
+            index +=1 
         # calculate image-level ROC AUC score
         img_scores = scores.reshape(scores.shape[0], -1).max(axis=1)
         gt_list = np.asarray(gt_list)
@@ -105,33 +119,34 @@ def main():
         #save test images
         index = 0
 
-        # for img in test_imgs:
-        #     # print(img.shape) 
-        #     # Transpose from [channels, height, width] to [height, width, channels]
-        #     img = np.transpose(img, (1, 2, 0))
+        for img in test_imgs:
+            # print(img.shape) 
+            # Transpose from [channels, height, width] to [height, width, channels]
+            img = np.transpose(img, (1, 2, 0))
 
-        #     # The number you want to write
-        #     ground_truth_lab = gt_list[index]
-        #     score_num = img_scores[index]
+            # The number you want to write
+            ground_truth_lab = gt_list[index]
+            score_num = img_scores[index]
 
-        #     fig, ax = plt.subplots()
+            fig, ax = plt.subplots()
 
-        #     # Visualize the image
-        #     ax.imshow(img)
+            # Visualize the image
+            ax.imshow(img)
 
-        #     # Add text at the bottom left (x=0, y=image height)
-        #     ax.text(0, img.shape[0], str(ground_truth_lab), color='black', fontsize=16, weight='bold', verticalalignment='bottom')
+            # Add text at the bottom left (x=0, y=image height)
+            ax.text(0, img.shape[0], str(ground_truth_lab), color='black', fontsize=16, weight='bold', verticalalignment='bottom')
             
-        #     # Add text at the bottom right (x=image width, y=image height)
-        #     ax.text(img.shape[1], img.shape[0], str(score_num), color='red', fontsize=16, weight='bold', verticalalignment='bottom', horizontalalignment='right')
+            # Add text at the bottom right (x=image width, y=image height)
+            ax.text(img.shape[1], img.shape[0], str(score_num), color='red', fontsize=16, weight='bold', verticalalignment='bottom', horizontalalignment='right')
 
-        #     # Visualize the image
-        #     plt.imshow(img)
+            # Visualize the image
+            plt.imshow(img)
 
-        #     # Save the image
-        #     print("results/"+str(inference_round)+'/'+str(index)+'.png')
-        #     fig.savefig("results/"+str(inference_round)+'/'+str(index)+'.png') 
-        #     index +=1    
+            # Save the image
+            print("results/"+str(inference_round)+'/'+str(index)+'.png')
+            fig.savefig("results/"+str(inference_round)+'/'+str(index)+'.png') 
+            plt.close(fig)
+            index +=1    
             
         img_roc_auc = roc_auc_score(gt_list, img_scores)
         image_auc_list.append(img_roc_auc)
@@ -244,8 +259,26 @@ def test(args, models, cur_epoch, test_loader, **kwargs):
         rotate90_img = rot90_img(support_img, angle)
         augment_support_img = torch.cat([augment_support_img, rotate90_img], dim=0)
     augment_support_img = augment_support_img[torch.randperm(augment_support_img.size(0))]
-    # print("augment_support_img",augment_support_img.shape)
-    # torch version
+    print("augment_support_img",augment_support_img.shape)
+    
+    """Visualize the augmented Images"""
+    # index=0 
+    # for img in augment_support_img:
+    #         # print(img.shape) 
+
+    #         # Transpose from [channels, height, width] to [height, width, channels]
+    #         img = np.transpose(img, (1, 2, 0))
+
+    #         fig, ax = plt.subplots()
+
+    #         # Visualize the image
+    #         plt.imshow(img)
+
+    #         # Save the image
+    #         print("augmentations/"+str(index)+'.png')
+    #         fig.savefig("augmentations/"+str(index)+'.png') 
+    #         plt.close(fig)
+    #         index +=1     
         
     with torch.no_grad():
         support_feat = STN(augment_support_img.to(device))
