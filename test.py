@@ -34,7 +34,7 @@ def main():
     parser = argparse.ArgumentParser(description='RegAD on MVtec')
     parser.add_argument('--obj', type=str, default='hazelnut')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./MPDD/')
+    parser.add_argument('--data_path', type=str, default='./MVTec/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -61,9 +61,9 @@ def main():
     
     # load models
     #For custom model bring them from the logs folder
-    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    # CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
 
-    # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
     STN.load_state_dict(model_CKPT['STN'])
     ENC.load_state_dict(model_CKPT['ENC'])
@@ -77,8 +77,12 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
     print('Loading Fixed Support Set')
-    # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
-
+    fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
+    print(len(fixed_fewshot_list))
+    # for f in fixed_fewshot_list:
+    #     print(f.shape)
+    exit()
+    
     print('Start Testing:')
     start_time = time.time()
     image_auc_list = []

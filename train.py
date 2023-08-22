@@ -94,7 +94,7 @@ def main():
     img_roc_auc_old = 0.0
     per_pixel_rocauc_old = 0.0
     print('Loading Fixed Support Set')
-    # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
+    fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
     print_log((f'---------{args.stn_mode}--------'), log)
 
     for epoch in range(1, args.epochs + 1):
@@ -107,7 +107,7 @@ def main():
             image_auc_list = []
             pixel_auc_list = []
             for inference_round in tqdm(range(args.inferences)):
-                scores_list, test_imgs, gt_list, gt_mask_list = test(models, inference_round,
+                scores_list, test_imgs, gt_list, gt_mask_list = test(models, inference_round, fixed_fewshot_list,
                                                                      test_loader, **kwargs)
                 scores = np.asarray(scores_list)
                 # Normalization
@@ -219,7 +219,7 @@ def train(models, epoch, train_loader, optimizers, log):
     print_log(('Train Epoch: {} Total_Loss: {:.6f}'.format(epoch, total_losses.avg)), log)
 
 
-def test(models, cur_epoch, test_loader, **kwargs):
+def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     STN = models[0]
     ENC = models[1]
     PRED = models[2]
@@ -242,23 +242,10 @@ def test(models, cur_epoch, test_loader, **kwargs):
     new_size = [224, 224]
 
     #The shape support_img should be [2,3,224,224] [k, C, H, W]
-    support_img = support_imgs[cur_epoch]
-    # support_img = fixed_fewshot_list[cur_epoch]
-    support_img = torch.from_numpy(support_img)
-    print("support_img", support_img.shape)
-    
-    single_img = support_img[0]
-    
-    print(single_img.shape)
-    # Transpose the tensor to (224, 224, 3) for visualization
-    img = single_img.permute(1, 2, 0)
-
-    # Convert the tensor to numpy array
-    img_np = img.detach().numpy()
-
-    # Display the image
-    # plt.imshow(img_np)
-    # plt.imsave('new.png', img_np)
+    # support_img = support_imgs[cur_epoch]
+    support_img = fixed_fewshot_list[cur_epoch]
+    # support_img = torch.from_numpy(support_img)
+    # print("support_img", support_img.shape)
     
     height = support_img.shape[2]
     width = support_img.shape[3]
