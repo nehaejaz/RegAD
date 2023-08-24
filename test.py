@@ -79,7 +79,7 @@ def main():
 
     print('Loading Fixed Support Set')
     fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
-    fixed_fewshot_list = torch.load(f'./b_br_2_10.pt')
+    fixed_fewshot_list = torch.load(f'./m_2_10.pt')
 
     print(len(fixed_fewshot_list))
     # for f in fixed_fewshot_list:
@@ -214,7 +214,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
 
     
     new_size = [224, 224]
-    support_img = support_imgs[cur_epoch]
+    # support_img = support_imgs[cur_epoch]
     #The shape support_img should be [2,3,224,224] [k, C, H, W]
 
     support_img = fixed_fewshot_list[cur_epoch]
