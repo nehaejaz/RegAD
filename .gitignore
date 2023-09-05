@@ -5,6 +5,7 @@
 /rounds/
 /save_checkpoints/
 /support_set/
+/mpdd_supp_set
 support_set.tar
 __pycache__/
 *.pt
