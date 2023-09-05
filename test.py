@@ -62,7 +62,7 @@ def main():
     
     # load models
     #For custom model bring them from the logs folder
-    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}-my-app/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}-my-app/{"bracket_black"}/{"bracket_black"}_{args.shot}_rotation_scale_model.pt'
 
     # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
@@ -78,8 +78,8 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
     print('Loading Fixed Support Set')
-    fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
-    fixed_fewshot_list = torch.load(f'./m_2_10.pt')
+    # fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_b_2_10.pt')
 
     print(len(fixed_fewshot_list))
     # for f in fixed_fewshot_list:
@@ -214,10 +214,10 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
 
     
     new_size = [224, 224]
-    # support_img = support_imgs[cur_epoch]
+    support_img = support_imgs[cur_epoch]
     #The shape support_img should be [2,3,224,224] [k, C, H, W]
 
-    support_img = fixed_fewshot_list[cur_epoch]
+    # support_img = fixed_fewshot_list[cur_epoch]
     
     support_img = torch.from_numpy(support_img)
     print("support_img", support_img.shape)
