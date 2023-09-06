@@ -43,7 +43,7 @@ def main():
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum of SGD')
     parser.add_argument('--seed', type=int, default=668, help='manual seed')
     parser.add_argument('--shot', type=int, default=2, help='shot count')
-    parser.add_argument('--inferences', type=int, default=10, help='number of rounds per inference')
+    parser.add_argument('--inferences', type=int, default=1, help='number of rounds per inference')
     parser.add_argument('--stn_mode', type=str, default='rotation_scale', help='[affine, translation, rotation, scale, shear, rotation_scale, translation_scale, rotation_translation, rotation_translation_scale]')
     args = parser.parse_args()
 
@@ -79,7 +79,7 @@ def main():
 
     print('Loading Fixed Support Set')
     # fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
-    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_b_2_10.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_b_2_1.pt')
 
     print(len(fixed_fewshot_list))
     # for f in fixed_fewshot_list:
@@ -200,27 +200,28 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
 
     count =0
-    if len(support_imgs) == 0:
-        for (query_img, support_img, mask, y) in tqdm(test_loader):
-            if count >= 10:  # Process only the first 10 items
-                break;
-            #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
-            numpy_array = np.stack([t.numpy() for t in support_img])
-            numpy_array = numpy_array.squeeze(1)
-            support_imgs.append(numpy_array)
-            print(count)
-            count +=1
+    # if len(support_imgs) == 0:
+    #     for (query_img, support_img, mask, y) in tqdm(test_loader):
+    #         if count >= 10:  # Process only the first 10 items
+    #             break;
+    #         #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
+    #         numpy_array = np.stack([t.numpy() for t in support_img])
+    #         numpy_array = numpy_array.squeeze(1)
+    #         support_imgs.append(numpy_array)
+    #         print(count)
+    #         count +=1
         
 
     
     new_size = [224, 224]
-    support_img = support_imgs[cur_epoch]
+    # support_img = support_imgs[cur_epoch]
     #The shape support_img should be [2,3,224,224] [k, C, H, W]
 
-    # support_img = fixed_fewshot_list[cur_epoch]
+    support_img = fixed_fewshot_list[cur_epoch]
     
-    support_img = torch.from_numpy(support_img)
+    # support_img = torch.from_numpy(support_img)
     print("support_img", support_img.shape)
+
     count=0
     for img in support_img:
         print(img.shape)
@@ -261,6 +262,8 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     #     plt.imsave('resized_image.png', img_np)
 
     augment_support_img = support_img
+    print(support_img.shape)
+
     # rotate img with small angle
     for angle in [-np.pi/4, -3 * np.pi/16, -np.pi/8, -np.pi/16, np.pi/16, np.pi/8, 3 * np.pi/16, np.pi/4]:
         rotate_img = rot_img(support_img, angle)
@@ -327,7 +330,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     global memory_bank
 
     #Applying core-set subsampling to get the embedding
-    memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.01)
+    memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.1)
     print("memory_bank",memory_bank.shape)
 
     # calculate multivariate Gaussian distribution
