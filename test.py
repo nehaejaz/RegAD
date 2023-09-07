@@ -62,7 +62,7 @@ def main():
     
     # load models
     #For custom model bring them from the logs folder
-    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}-my-app/{"bracket_black"}/{"bracket_black"}_{args.shot}_rotation_scale_model.pt'
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}-my-app/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
 
     # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
@@ -79,7 +79,9 @@ def main():
 
     print('Loading Fixed Support Set')
     # fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
-    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_b_2_1.pt')
+    # fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_br_2_1.pt')
+    fixed_fewshot_list = torch.load(f'./b_br_4_1_1.pt')
+
 
     print(len(fixed_fewshot_list))
     # for f in fixed_fewshot_list:
@@ -215,7 +217,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     
     new_size = [224, 224]
     # support_img = support_imgs[cur_epoch]
-    #The shape support_img should be [2,3,224,224] [k, C, H, W]
+    # The shape support_img should be [2,3,224,224] [k, C, H, W]
 
     support_img = fixed_fewshot_list[cur_epoch]
     
@@ -330,7 +332,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     global memory_bank
 
     #Applying core-set subsampling to get the embedding
-    memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.1)
+    memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.01)
     print("memory_bank",memory_bank.shape)
 
     # calculate multivariate Gaussian distribution
