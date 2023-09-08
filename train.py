@@ -231,20 +231,24 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     train_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
     test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
     support_imgs=[]
-    for (query_img, support_img, mask, y) in tqdm(test_loader):
-        #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
-        for i in range(10):
+    count = 0
+    if len(support_imgs) == 0:
+        for (query_img, support_img, mask, y) in tqdm(test_loader):
+            if count >= 10:  # Process only the first 10 items
+                break;
+            #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
             numpy_array = np.stack([t.numpy() for t in support_img])
             numpy_array = numpy_array.squeeze(1)
             support_imgs.append(numpy_array)
-        break;
+            print(count)
+            count +=1
     
     new_size = [224, 224]
 
     #The shape support_img should be [2,3,224,224] [k, C, H, W]
-    # support_img = support_imgs[cur_epoch]
-    support_img = fixed_fewshot_list[cur_epoch]
-    # support_img = torch.from_numpy(support_img)
+    support_img = support_imgs[cur_epoch]
+    # support_img = fixed_fewshot_list[cur_epoch]
+    support_img = torch.from_numpy(support_img)
     # print("support_img", support_img.shape)
     
     height = support_img.shape[2]
