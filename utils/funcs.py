@@ -3,6 +3,8 @@ import torch
 from utils.utils import print_log
 import torch.nn.functional as F
 import kornia as K
+import cv2
+import matplotlib.pyplot as plt
 
 
 def embedding_concat(x, y, use_cuda):
@@ -65,6 +67,15 @@ def grey_img(x):
     x = x.repeat(1, 3, 1,1)
     return x
 
+def contrast(x):
+    aug = K.augmentation.RandomContrast(contrast=(2.0, 2.0), clip_output=True, same_on_batch=False, p=1.0, keepdim=False)
+    x= aug(x)
+    return x
+
+def brightness(x):
+    aug = K.augmentation.RandomBrightness(brightness=(1.2, 1.2), clip_output=True, same_on_batch=False, p=1.0, keepdim=False)
+    x = aug(x)
+    return x
 
 def denormalization(x):
     mean = np.array([0.5, 0.5, 0.5])
