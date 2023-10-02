@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 
 def embedding_concat(x, y, use_cuda):
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    device = torch.device('cuda:3' if use_cuda else 'cpu')
     B, C1, H1, W1 = x.size()
     _, C2, H2, W2 = y.size()
     s = int(H1 / H2)

@@ -27,16 +27,16 @@ def conv1x1(in_planes: int, out_planes: int, stride: int = 1) -> nn.Conv2d:
 class Encoder(nn.Module):
     def __init__(self):
         super(Encoder, self).__init__()
-        self.conv1 = conv1x1(in_planes=256, out_planes=256)
-        self.bn1 = nn.BatchNorm2d(256)
+        self.conv1 = conv1x1(in_planes=768, out_planes=768)
+        self.bn1 = nn.BatchNorm2d(768)
         self.relu1 = nn.ReLU()
 
-        self.conv2 = conv1x1(in_planes=256, out_planes=256)
-        self.bn2 = nn.BatchNorm2d(256)
+        self.conv2 = conv1x1(in_planes=768, out_planes=768)
+        self.bn2 = nn.BatchNorm2d(768)
         self.relu2 = nn.ReLU()
 
-        self.conv3 = conv1x1(in_planes=256, out_planes=256)
-        self.bn3 = nn.BatchNorm2d(256)
+        self.conv3 = conv1x1(in_planes=768, out_planes=768)
+        self.bn3 = nn.BatchNorm2d(768)
         self.relu3 = nn.ReLU()
     
     def forward(self, x):
@@ -59,11 +59,11 @@ class Encoder(nn.Module):
 class Predictor(nn.Module):
     def __init__(self):
         super(Predictor, self).__init__()
-        self.conv1 = conv1x1(in_planes=256, out_planes=256)
-        self.bn1 = nn.BatchNorm2d(256)
+        self.conv1 = conv1x1(in_planes=768, out_planes=768)
+        self.bn1 = nn.BatchNorm2d(768)
         self.relu1 = nn.ReLU()
 
-        self.conv2 = conv1x1(in_planes=256, out_planes=256)
+        self.conv2 = conv1x1(in_planes=768, out_planes=768)
         self.relu2 = nn.ReLU()
 
     def forward(self, x):

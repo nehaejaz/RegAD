@@ -11,6 +11,7 @@ from datasets.mvtec import FSAD_Dataset_train, FSAD_Dataset_test
 from utils.utils import time_file_str, time_string, convert_secs2time, AverageMeter, print_log
 from models.siamese import Encoder, Predictor
 from models.stn import stn_net
+from models.convnext import convnext_tiny
 from losses.norm_loss import CosLoss
 from utils.funcs import embedding_concat, mahalanobis_torch, rot_img, translation_img, hflip_img, rot90_img, grey_img, contrast, brightness
 from utils.KCenterGreedy import KCenterGreedy
@@ -28,14 +29,14 @@ import cv2
 
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
+device = torch.device('cuda:3' if use_cuda else 'cpu')
 memory_bank = torch.Tensor()
 
 def main():
     parser = argparse.ArgumentParser(description='RegAD on MVtec')
     parser.add_argument('--obj', type=str, default='hazelnut')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./MVTec/')
+    parser.add_argument('--data_path', type=str, default='./MPDD/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -43,7 +44,7 @@ def main():
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum of SGD')
     parser.add_argument('--seed', type=int, default=668, help='manual seed')
     parser.add_argument('--shot', type=int, default=2, help='shot count')
-    parser.add_argument('--inferences', type=int, default=10, help='number of rounds per inference')
+    parser.add_argument('--inferences', type=int, default=1, help='number of rounds per inference')
     parser.add_argument('--stn_mode', type=str, default='rotation_scale', help='[affine, translation, rotation, scale, shear, rotation_scale, translation_scale, rotation_translation, rotation_translation_scale]')
     args = parser.parse_args()
 
@@ -59,17 +60,19 @@ def main():
     STN = stn_net(args).to(device)
     ENC = Encoder().to(device)
     PRED = Predictor().to(device)
+    CON = convnext_tiny(args).to(device)
+
     
     # load models
     #For custom model bring them from the logs folder
-    # CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{"bracket_black"}/{"bracket_black"}_{args.shot}_rotation_scale_model_convnext.pt'
 
-    CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
-    STN.load_state_dict(model_CKPT['STN'])
     ENC.load_state_dict(model_CKPT['ENC'])
     PRED.load_state_dict(model_CKPT['PRED'])
-    models = [STN, ENC, PRED]
+    CON.load_state_dict(model_CKPT['CON'])
+    models = [ENC, PRED, CON]
 
     print('Loading Datasets')
     kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
@@ -79,8 +82,8 @@ def main():
 
     print('Loading Fixed Support Set')
     # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
-    # fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/t_2_1.pt')
-    fixed_fewshot_list = torch.load(f'./c_8_1.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_w_2_1.pt')
+    # fixed_fewshot_list = torch.load(f'./c_8_1.pt')
 
 
     print(len(fixed_fewshot_list))
@@ -119,6 +122,7 @@ def main():
         #     plt.savefig(f"heatmaps/{str(inference_round)}/{index}.png") 
         #     plt.close() 
         #     index +=1 
+            
         # calculate image-level ROC AUC score
         img_scores = scores.reshape(scores.shape[0], -1).max(axis=1)
         gt_list = np.asarray(gt_list)
@@ -126,8 +130,8 @@ def main():
         print("gt_list", gt_list)
 
         
-        #save test images
-        # index = 0
+        # save test images
+        index = 0
 
         # for img in test_imgs:
         #     # print(img.shape) 
@@ -190,54 +194,56 @@ def main():
 
 
 def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **kwargs):
-    STN = models[0]
-    ENC = models[1]
-    PRED = models[2]
+    # STN = models[0]
+    ENC = models[0]
+    PRED = models[1]
+    CON = models[2]
 
-    STN.eval()
+    # STN.eval()
     ENC.eval()
     PRED.eval()
+    CON.eval()
 
-    train_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
-    test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
+    train_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', []), ('layer4', [])])
+    test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', []), ('layer4', [])])
 
-    count =0
-    if len(support_imgs) == 0:
-        for (query_img, support_img, mask, y) in tqdm(test_loader):
-            if count >= 10:  # Process only the first 10 items
-                break;
-            #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
-            numpy_array = np.stack([t.numpy() for t in support_img])
-            numpy_array = numpy_array.squeeze(1)
-            support_imgs.append(numpy_array)
-            print(count)
-            count +=1
+    # count =0
+    # if len(support_imgs) == 0:
+    #     for (query_img, support_img, mask, y) in tqdm(test_loader):
+    #         if count >= 10:  # Process only the first 10 items
+    #             break;
+    #         #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
+    #         numpy_array = np.stack([t.numpy() for t in support_img])
+    #         numpy_array = numpy_array.squeeze(1)
+    #         support_imgs.append(numpy_array)
+    #         print(count)
+    #         count +=1
         
 
     
     new_size = [224, 224]
-    support_img = support_imgs[cur_epoch]
+    # support_img = support_imgs[cur_epoch]
     # The shape support_img should be [2,3,224,224] [k, C, H, W]
 
-    # support_img = fixed_fewshot_list[cur_epoch]
+    support_img = fixed_fewshot_list[cur_epoch]
     
-    support_img = torch.from_numpy(support_img)
+    # support_img = torch.from_numpy(support_img)
     print("support_img", support_img.shape)
 
-    count=0
-    for img in support_img:
-        print(img.shape)
+    # count=0
+    # for img in support_img:
+    #     print(img.shape)
       
-        # Transpose the tensor to (224, 224, 3) for visualization
-        img = img.permute(1, 2, 0)
+    #     # Transpose the tensor to (224, 224, 3) for visualization
+    #     img = img.permute(1, 2, 0)
 
-        # Convert the tensor to numpy array
-        img = img.detach().numpy()
+    #     # Convert the tensor to numpy array
+    #     img = img.detach().numpy()
 
-        # Display the image
-        plt.imshow(img)
-        plt.imsave(str(cur_epoch)+"_"+str(count)+'.png', img)
-        count +=1
+    #     # Display the image
+    #     plt.imshow(img)
+    #     plt.imsave(str(cur_epoch)+"_"+str(count)+'.png', img)
+    #     count +=1
         
     
     height = support_img.shape[2]
@@ -296,36 +302,38 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     
     """Visualize the augmented Images"""
     index=0 
-    for img in augment_support_img:
-            # print(img.shape) 
+    # for img in augment_support_img:
+    #         # print(img.shape) 
 
-            # Transpose from [channels, height, width] to [height, width, channels]
-            img = np.transpose(img, (1, 2, 0))
+    #         # Transpose from [channels, height, width] to [height, width, channels]
+    #         img = np.transpose(img, (1, 2, 0))
 
-            fig, ax = plt.subplots()
+    #         fig, ax = plt.subplots()
 
-            # Visualize the image
-            plt.imshow(img)
+    #         # Visualize the image
+    #         plt.imshow(img)
 
-            # Save the image
-            print("augmentations/"+str(index)+'.png')
-            fig.savefig("augmentations/"+str(index)+'.png') 
-            plt.close(fig)
-            index +=1     
+    #         # Save the image
+    #         print("augmentations/"+str(index)+'.png')
+    #         fig.savefig("augmentations/"+str(index)+'.png') 
+    #         plt.close(fig)
+    #         index +=1     
     
     with torch.no_grad():
-        support_feat = STN(augment_support_img.to(device))
+        support_feat = CON(augment_support_img.to(device))
     support_feat = torch.mean(support_feat, dim=0, keepdim=True)
-    train_outputs['layer1'].append(STN.stn1_output)
-    train_outputs['layer2'].append(STN.stn2_output)
-    train_outputs['layer3'].append(STN.stn3_output)
+    train_outputs['layer1'].append(CON.output_layers[0])
+    train_outputs['layer2'].append(CON.output_layers[1])
+    train_outputs['layer3'].append(CON.output_layers[2])
+    train_outputs['layer4'].append(CON.output_layers[3])
+
 
     for k, v in train_outputs.items():
         train_outputs[k] = torch.cat(v, 0)
 
     # Embedding concat
     embedding_vectors = train_outputs['layer1']
-    for layer_name in ['layer2', 'layer3']:
+    for layer_name in ['layer2', 'layer3', 'layer4']:
         embedding_vectors = embedding_concat(embedding_vectors, train_outputs[layer_name], True)
     """The shape of embedding_vectors is [44, 448, 56, 56]""" 
     print("embedding_vectors",embedding_vectors.shape)
@@ -380,7 +388,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
         # print("query_img",query_img.shape)
         
         # model prediction
-        query_feat = STN(query_img.to(device))
+        query_feat = CON(query_img.to(device))
         z1 = ENC(query_feat)
         z2 = ENC(support_feat)
         p1 = PRED(z1)
@@ -390,16 +398,18 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
         loss_reshape = F.interpolate(loss.unsqueeze(1), size=query_img.size(2), mode='bilinear',align_corners=False).squeeze(0)
         score_map_list.append(loss_reshape.cpu().detach().numpy())
 
-        test_outputs['layer1'].append(STN.stn1_output)
-        test_outputs['layer2'].append(STN.stn2_output)
-        test_outputs['layer3'].append(STN.stn3_output)
+        test_outputs['layer1'].append(CON.output_layers[0])
+        test_outputs['layer2'].append(CON.output_layers[1])
+        test_outputs['layer3'].append(CON.output_layers[2])
+        test_outputs['layer4'].append(CON.output_layers[3])
+
 
     for k, v in test_outputs.items():
         test_outputs[k] = torch.cat(v, 0)
 
     # Embedding concat
     embedding_vectors = test_outputs['layer1']
-    for layer_name in ['layer2', 'layer3']:
+    for layer_name in ['layer2', 'layer3', 'layer4']:
         embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name], True)
     """The shape of embedding_vectors is [83, 448, 56, 56]""" 
     
@@ -439,7 +449,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     # first_map = anomaly_map[0, 0, :, :]
     
     #Put it on CPU and convert to numpy
-    score_map = anomaly_map.cpu().numpy()
+    score_map = anomaly_map.cpu().detach().numpy()
         
     """To Generate the Heat Maps. Basically the score_map
     is the score of the patchesvwhere the anomalies are present."""   
@@ -465,32 +475,6 @@ def nearest_neighbors(embedding, n_neighbors):
         Tensor: Locations of the nearest neighbor(s).
     """
     global memory_bank
-    
-    # embedding_size = embedding.shape[0]
-    # memory_bank_size = memory_bank.shape[0]
-
-    # embedding_chunk_size = 100  # Adjust this value based on your GPU memory
-    # memory_bank_chunk_size = 100  # Adjust this value based on your GPU memory
-
-    # distances = []
-
-    # for i in range(0, embedding_size, embedding_chunk_size):
-    #     embedding_chunk = embedding[i:i + embedding_chunk_size, :]
-    #     for j in range(0, memory_bank_size, memory_bank_chunk_size):
-    #         memory_bank_chunk = memory_bank[j:j + memory_bank_chunk_size, :]
-    #         distances_chunk = torch.cdist(embedding_chunk, memory_bank_chunk, p=2.0)
-    #         distances.append(distances_chunk)
-    #     print("round=",i)
-        
-    # print("Done")
-
-    # # Concatenate all distance chunks
-    # distances = torch.cat(distances, dim=0)
-    # print("distances=",distances.shape)
-
-
-
-
 
     distances = torch.cdist(embedding, memory_bank, p=2.0)  # euclidean norm
     if n_neighbors == 1:

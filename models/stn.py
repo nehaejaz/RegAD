@@ -3,10 +3,11 @@ from typing import Type, Any, Callable, Union, List, Optional
 import torch.nn as nn
 from torch import Tensor
 import torch.nn.functional as F
-from torchvision.models import resnet18
+from torchvision.models import resnet18, convnext_tiny
 import torch.utils.model_zoo as model_zoo
 from torch.autograd import Variable
 import numpy as np
+from transformers import AutoImageProcessor, ConvNextModel
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -14,6 +15,8 @@ model_urls = {
     'resnet50': 'https://download.pytorch.org/models/resnet50-19c8e357.pth',
     'resnet101': 'https://download.pytorch.org/models/resnet101-5d3b4d8f.pth',
     'resnet152': 'https://download.pytorch.org/models/resnet152-b121ed2d.pth',
+    'convnext_tiny': 'https://download.pytorch.org/models/convnext_tiny-983f1562.pth',
+
 }
 
 N_PARAMS = {'affine': 6,
@@ -202,7 +205,7 @@ class BasicBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-
+    print("*******************")
     def __init__(self, args, block, layers):
         super(ResNet, self).__init__()
         self.inplanes = 64
@@ -279,7 +282,23 @@ def stn_net(args, pretrained=True, **kwargs):
     Args:
         pretrained (bool): If True, returns a model pre-trained on ImageNet
     """
+    #Constructing the Model
     model = ResNet(args, BasicBlock, [2, 2, 2, 2], **kwargs)
     if pretrained:
+        #loading weights for the model
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18']), strict=False)
     return model
+
+# def stn_net(args, pretrained=True, **kwargs):
+#     """Constructs a ResNet-18 model.
+#     Args:
+#         pretrained (bool): If True, returns a model pre-trained on ImageNet
+#     """
+#     #Constructing the Model
+#     model = ConvNextModel.from_pretrained("facebook/convnext-tiny-224")
+#     if pretrained:
+#         #loading weights for the model
+#         model.load_state_dict(model_zoo.load_url(model_urls['convnext_tiny']), strict=False)
+#     # print(model)
+#     # l = [module for module in model.modules()]
+#     return model
