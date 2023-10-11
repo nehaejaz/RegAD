@@ -91,13 +91,14 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
     # start training
-    save_name = os.path.join(args.save_model_dir, '{}_{}_{}_model.pt'.format(args.obj, args.shot, args.stn_mode))
+    save_name = os.path.join(args.save_model_dir, '{}_{}_{}_model_convnext.pt'.format(args.obj, args.shot, args.stn_mode))
     start_time = time.time()
     epoch_time = AverageMeter()
     img_roc_auc_old = 0.0
     per_pixel_rocauc_old = 0.0
     print('Loading Fixed Support Set')
-    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/m_2_1.pt')
+    # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_w_2_1.pt')
     print_log((f'---------{args.stn_mode}--------'), log)
 
     for epoch in range(1, args.epochs + 1):
@@ -110,6 +111,7 @@ def main():
             image_auc_list = []
             pixel_auc_list = []
             for inference_round in tqdm(range(args.inferences)):
+                print('Round {}:'.format(inference_round))
                 scores_list, test_imgs, gt_list, gt_mask_list = test(models, inference_round, fixed_fewshot_list,
                                                                      test_loader, **kwargs)
                 scores = np.asarray(scores_list)
@@ -183,7 +185,7 @@ def train(models, epoch, train_loader, optimizers, log):
         query_feat = CON(query_img)
         """The shape of query_feat is [32, 256, 14, 14] [B,C,H,W]"""
 
-        print("query_feat", query_feat.shape)
+        # print("query_feat", query_feat.shape)
 
         support_img = support_img_list.squeeze(0).to(device)
         B,K,C,H,W = support_img.shape
@@ -310,12 +312,12 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     with torch.no_grad():
         support_feat = CON(augment_support_img.to(device))
         # a = STN(augment_support_img.to(device))
-        print(support_feat.shape)
+        # print(support_feat.shape)
         # print(STN.stn1_output.shape)
-        print(CON.output_layers[0].shape)
-        print(CON.output_layers[1].shape)
-        print(CON.output_layers[2].shape)
-        print(CON.output_layers[3].shape)
+        # print(CON.output_layers[0].shape)
+        # print(CON.output_layers[1].shape)
+        # print(CON.output_layers[2].shape)
+        # print(CON.output_layers[3].shape)
         # quit()
         # last_hidden_states = support_feat.last_hidden_state
         # print(last_hidden_states.shape)
@@ -334,19 +336,19 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     for layer_name in ['layer2', 'layer3', 'layer4']:
         embedding_vectors = embedding_concat(embedding_vectors, train_outputs[layer_name], True)
     """The shape of embedding_vectors is [44, 448, 56, 56]""" 
-    print("embedding_vectors",embedding_vectors.shape)
+    # print("embedding_vectors",embedding_vectors.shape)
 
     # for e in embedding_vectors:
     #     print("e", e.shape)
     #Apply reshaping on supp embeddings 
     embedding_vectors = reshape_embedding(embedding_vectors)
-    print("embedding_vectors reshaped",embedding_vectors.shape)
+    # print("embedding_vectors reshaped",embedding_vectors.shape)
 
     global memory_bank
 
     #Applying core-set subsampling to get the embedding
     memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.01)
-    print("memory_bank",memory_bank.shape)
+    # print("memory_bank",memory_bank.shape)
     # calculate multivariate Gaussian distribution
     # B, C, H, W = embedding_vectors.size()
     # embedding_vectors = embedding_vectors.view(B, C, H * W)
@@ -401,7 +403,6 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
 
     # Embedding concat
     embedding_vectors = test_outputs['layer1']
-    print(test_outputs['layer1'].shape)
     for layer_name in ['layer2', 'layer3', 'layer4']:
         embedding_vectors = embedding_concat(embedding_vectors, test_outputs[layer_name], True)
     """The shape of embedding_vectors is [83, 448, 56, 56]""" 
@@ -410,23 +411,23 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
 
     #apply reshaping on query embeddings 
     embedding_vectors = reshape_embedding(embedding_vectors)
-    print(embedding_vectors.shape)
+    # print(embedding_vectors.shape)
 
     #apply nearest neighbor search on query embeddings 
     patch_scores, locations = nearest_neighbors(embedding=embedding_vectors, n_neighbors=1)
-    print("patch_scores", patch_scores.shape)
-    print("locations", locations.shape)
+    # print("patch_scores", patch_scores.shape)
+    # print("locations", locations.shape)
 
     # reshape to batch dimension
     """The shape of patch_scores and locations is [83, 260288]"""
     patch_scores = patch_scores.reshape((batch_size, -1))
     locations = locations.reshape((batch_size, -1))
-    print("A-patch_scores", patch_scores.shape)
-    print("A-locations", locations.shape)
+    # print("A-patch_scores", patch_scores.shape)
+    # print("A-locations", locations.shape)
 
     #compute anomaly score
     anomaly_score = compute_anomaly_score(patch_scores, locations, embedding_vectors)
-    print("anomaly_score", anomaly_score.shape)
+    # print("anomaly_score", anomaly_score.shape)
 
     #reshape to w, h
     patch_scores = patch_scores.reshape((batch_size, 1, width, height))
@@ -446,13 +447,13 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
         
     """To Generate the Heat Maps. Basically the score_map
     is the score of the patchesvwhere the anomalies are present."""   
-    print(score_map.shape) 
+    # print(score_map.shape) 
     """The shape of score_map is (83,1, 224, 224)"""
     
     score_map = np.squeeze(score_map)
     """The shape of score_map is (83,224, 224)"""
 
-    print(score_map.shape) 
+    # print(score_map.shape) 
 
     return score_map, query_imgs, gt_list, mask_list
 
@@ -617,7 +618,7 @@ def nearest_neighbors(embedding, n_neighbors):
         Tensor: Locations of the nearest neighbor(s).
     """
     global memory_bank
-    print(embedding.shape,memory_bank.shape)
+    # print(embedding.shape,memory_bank.shape)
     distances = torch.cdist(embedding, memory_bank, p=2.0)  # euclidean norm
     
     if n_neighbors == 1:
@@ -685,17 +686,17 @@ def compute_anomaly_score(patch_scores, locations, embedding):
         # 3. Find the support samples of the nearest neighbor in the membank
         nn_sample = memory_bank[nn_index, :]  # m^* in the paper
         # indices of N_b(m^*) in the paper
-        print("inside compute_anomaly_score")
+        # print("inside compute_anomaly_score")
         _, support_samples = nearest_neighbors(nn_sample, n_neighbors=num_neighbors)
         # 4. Find the distance of the patch features to each of the support samples
         distances = torch.cdist(max_patches_features.unsqueeze(1), memory_bank[support_samples], p=2.0)
-        print("distances",distances.shape)
+        # print("distances",distances.shape)
 
         # 5. Apply softmax to find the weights
         weights = (1 - F.softmax(distances.squeeze(1), 1))[..., 0]
         # 6. Apply the weight factor to the score
         score = weights * score  # s in the paper
-        print("score",score.shape)
+        # print("score",score.shape)
         return score
 
 if __name__ == '__main__':
