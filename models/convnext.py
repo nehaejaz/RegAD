@@ -113,7 +113,6 @@ class ConvNeXt(nn.Module):
             # print(x.shape)
             x = self.stages[i](x)
             self.output_layers.append(x)
-            # self.stn1 = STNModule(64, 1, args)
             # print(x.shape)
 
         # return self.norm(x.mean([-2, -1])) # global average pooling, (N, C, H, W) -> (N, C)
