@@ -205,7 +205,7 @@ class BasicBlock(nn.Module):
 
 
 class ResNet(nn.Module):
-    print("*******************")
+    # print("*******************")
     def __init__(self, args, block, layers):
         super(ResNet, self).__init__()
         self.inplanes = 64
@@ -284,9 +284,16 @@ def stn_net(args, pretrained=True, **kwargs):
     """
     #Constructing the Model
     model = ResNet(args, BasicBlock, [2, 2, 2, 2], **kwargs)
+    # print(model)
     if pretrained:
         #loading weights for the model
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18']), strict=False)
+        # Get the state dictionary of the model
+        # state_dict = model.state_dict()
+
+        # # Print the keys
+        # print(state_dict.keys())
+        # quit()
     return model
 
 # def stn_net(args, pretrained=True, **kwargs):

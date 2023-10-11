@@ -24,7 +24,7 @@ class AnomalyMapGenerator(nn.Module):
         super().__init__()
         self.input_size = input_size
         kernel_size = 2 * int(4.0 * sigma + 0.5) + 1
-        print("kernel_size",kernel_size)
+        # print("kernel_size",kernel_size)
         self.blur = GaussianBlur2d(kernel_size=(kernel_size, kernel_size), sigma=(sigma, sigma), channels=1)
 
     def compute_anomaly_map(self, patch_scores: Tensor) -> Tensor:
@@ -54,6 +54,6 @@ class AnomalyMapGenerator(nn.Module):
         Returns:
             Tensor: anomaly_map
         """
-        print("hellooo")
+        # print("hellooo")
         anomaly_map = self.compute_anomaly_map(patch_scores)
         return anomaly_map

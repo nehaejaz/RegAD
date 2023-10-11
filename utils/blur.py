@@ -52,26 +52,26 @@ class GaussianBlur2d(nn.Module):
         super().__init__()
         sigma = sigma if isinstance(sigma, tuple) else (sigma, sigma)
         self.channels = channels
-        print("kernel_size",kernel_size)
-        print("sigma",sigma)
-        print("channels",channels)
+        # print("kernel_size",kernel_size)
+        # print("sigma",sigma)
+        # print("channels",channels)
 
 
         if kernel_size is None:
             kernel_size = (compute_kernel_size(sigma[0]), compute_kernel_size(sigma[1]))
         else:
             kernel_size = kernel_size if isinstance(kernel_size, tuple) else (kernel_size, kernel_size)
-            print("kernel_size",kernel_size)
+            # print("kernel_size",kernel_size)
 
         self.kernel: Tensor
         self.register_buffer("kernel", get_gaussian_kernel2d(kernel_size=kernel_size, sigma=sigma))
         self.kernel = self.kernel.squeeze()
         if normalize:
             self.kernel = normalize_kernel2d(self.kernel)
-        print("kernel",self.kernel.shape)
+        # print("kernel",self.kernel.shape)
 
         self.kernel.unsqueeze_(0).unsqueeze_(0)
-        print("kernel",self.kernel.shape)
+        # print("kernel",self.kernel.shape)
 
         self.kernel = self.kernel.expand(self.channels, -1, -1, -1)
         self.border_type = border_type
