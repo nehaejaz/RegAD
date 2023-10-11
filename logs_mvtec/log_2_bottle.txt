@@ -1,3 +1,0 @@
-{'batch_size': 32, 'data_path': './MVTec/', 'data_type': 'mvtec', 'epochs': 50, 'img_size': 224, 'inferences': 10, 'input_channel': 3, 'lr': 0.0001, 'momentum': 0.9, 'obj': 'bottle', 'prefix': '2023-07-19-5225', 'save_dir': './logs_mvtec/', 'save_model_dir': './logs_mvtec/rotation_scale/2/bottle/', 'seed': 668, 'shot': 2, 'stn_mode': 'rotation_scale'}
----------rotation_scale--------
-   1/ 50 ----- [[2023-07-19 12:27:09]] [Need: 00:00:00]
