@@ -7,6 +7,8 @@ from torchvision.models import resnet18
 import torch.utils.model_zoo as model_zoo
 from torch.autograd import Variable
 import numpy as np
+use_cuda = torch.cuda.is_available()
+device = torch.device('cuda:1' if use_cuda else 'cpu')
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',
@@ -252,7 +254,7 @@ class ResNet(nn.Module):
         x = self.layer1(x)
         x, theta1 = self.stn1(x)
         tmp = np.tile(np.array([0, 0, 1]), (x.shape[0], 1, 1)).astype(np.float32)
-        fixthea1 = torch.from_numpy(np.linalg.inv(np.concatenate((theta1.detach().cpu().numpy(), tmp), axis=1))[:,:-1,:]).cuda()
+        fixthea1 = torch.from_numpy(np.linalg.inv(np.concatenate((theta1.detach().cpu().numpy(), tmp), axis=1))[:,:-1,:]).cuda(1)
 
         self.stn1_output = self._fixstn(x.detach(), fixthea1)
         # after layer1 shape:  torch.Size([32, 64, 56, 56])
@@ -260,14 +262,14 @@ class ResNet(nn.Module):
         x = self.layer2(x)
         x, theta2 = self.stn2(x)
         tmp = np.tile(np.array([0, 0, 1]), (x.shape[0], 1, 1)).astype(np.float32)
-        fixthea2 = torch.from_numpy(np.linalg.inv(np.concatenate((theta2.detach().cpu().numpy(), tmp), axis=1))[:,:-1,:]).cuda()
+        fixthea2 = torch.from_numpy(np.linalg.inv(np.concatenate((theta2.detach().cpu().numpy(), tmp), axis=1))[:,:-1,:]).cuda(1)
         self.stn2_output = self._fixstn(self._fixstn(x.detach(), fixthea2), fixthea1)
         # after layer2 shape:  torch.Size([32, 128, 28, 28])
 
         x = self.layer3(x)
         out, theta3 = self.stn3(x)
         tmp = np.tile(np.array([0, 0, 1]), (x.shape[0], 1, 1)).astype(np.float32)
-        fixthea3 = torch.from_numpy(np.linalg.inv(np.concatenate((theta3.detach().cpu().numpy(), tmp), axis=1))[:,:-1,:]).cuda()
+        fixthea3 = torch.from_numpy(np.linalg.inv(np.concatenate((theta3.detach().cpu().numpy(), tmp), axis=1))[:,:-1,:]).cuda(1)
         self.stn3_output = self._fixstn(self._fixstn(self._fixstn(out.detach(), fixthea3), fixthea2), fixthea1)
         # after layer3 shape:  torch.Size([32, 256, 14, 14])
 

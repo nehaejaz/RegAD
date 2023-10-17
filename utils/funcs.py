@@ -5,10 +5,11 @@ import torch.nn.functional as F
 import kornia as K
 import cv2
 import matplotlib.pyplot as plt
+from torchvision import transforms
 
 
 def embedding_concat(x, y, use_cuda):
-    device = torch.device('cuda' if use_cuda else 'cpu')
+    device = torch.device('cuda:1' if use_cuda else 'cpu')
     B, C1, H1, W1 = x.size()
     _, C2, H2, W2 = y.size()
     s = int(H1 / H2)
@@ -75,7 +76,26 @@ def contrast(x):
 def brightness(x):
     aug = K.augmentation.RandomBrightness(brightness=(1.2, 1.2), clip_output=True, same_on_batch=False, p=1.0, keepdim=False)
     x = aug(x)
+    print("b",x.shape)
     return x
+
+def maddern(x,alpha):
+    eps= 1e-7
+    maddern = 0.5 + torch.log(x[:,1,:,:]+eps) - alpha * torch.log(x[:,2,:,:]+eps) - (1-alpha)*torch.log(x[:,0,:,:]+eps)
+    x = maddern.view([x.shape[0],1,x.shape[2], x.shape[3]])
+    maddern_img_3_channels = torch.cat([x]*3, dim=1)
+    return maddern_img_3_channels
+
+def maddern_hs(x,alpha):
+    maddern_out = maddern(x,alpha)
+    # Convert the image to HSV
+    hsv_image = K.color.rgb_to_hsv(x)
+    h, s, v = torch.chunk(hsv_image, 3, dim=1)
+    x[:,0:,:] = maddern_out.squeeze(1)
+    x[:,1:,:] = h
+    x[:,2:,:] = s
+    return x 
+
 
 def denormalization(x):
     mean = np.array([0.5, 0.5, 0.5])

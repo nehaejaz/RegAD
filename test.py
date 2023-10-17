@@ -12,7 +12,7 @@ from utils.utils import time_file_str, time_string, convert_secs2time, AverageMe
 from models.siamese import Encoder, Predictor
 from models.stn import stn_net
 from losses.norm_loss import CosLoss
-from utils.funcs import embedding_concat, mahalanobis_torch, rot_img, translation_img, hflip_img, rot90_img, grey_img, contrast, brightness
+from utils.funcs import embedding_concat, mahalanobis_torch, rot_img, translation_img, hflip_img, rot90_img, grey_img, contrast, brightness, maddern, maddern_hs
 from utils.KCenterGreedy import KCenterGreedy
 from utils.AnomalyMapGenerator import AnomalyMapGenerator
 from sklearn.metrics import roc_auc_score
@@ -28,14 +28,14 @@ import cv2
 
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
+device = torch.device('cuda:1' if use_cuda else 'cpu')
 memory_bank = torch.Tensor()
 
 def main():
     parser = argparse.ArgumentParser(description='RegAD on MVtec')
     parser.add_argument('--obj', type=str, default='hazelnut')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./MVTec/')
+    parser.add_argument('--data_path', type=str, default='./MPDD/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -43,7 +43,7 @@ def main():
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum of SGD')
     parser.add_argument('--seed', type=int, default=668, help='manual seed')
     parser.add_argument('--shot', type=int, default=2, help='shot count')
-    parser.add_argument('--inferences', type=int, default=10, help='number of rounds per inference')
+    parser.add_argument('--inferences', type=int, default=1, help='number of rounds per inference')
     parser.add_argument('--stn_mode', type=str, default='rotation_scale', help='[affine, translation, rotation, scale, shear, rotation_scale, translation_scale, rotation_translation, rotation_translation_scale]')
     args = parser.parse_args()
 
@@ -62,9 +62,9 @@ def main():
     
     # load models
     #For custom model bring them from the logs folder
-    # CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}-my-app/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
 
-    CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
+    # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
     STN.load_state_dict(model_CKPT['STN'])
     ENC.load_state_dict(model_CKPT['ENC'])
@@ -79,8 +79,8 @@ def main():
 
     print('Loading Fixed Support Set')
     # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
-    # fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/t_2_1.pt')
-    fixed_fewshot_list = torch.load(f'./c_8_1.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_b_2_1.pt')
+    # fixed_fewshot_list = torch.load(f'./t_8_1.pt')
 
 
     print(len(fixed_fewshot_list))
@@ -201,27 +201,27 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     train_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
     test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', [])])
 
-    count =0
-    if len(support_imgs) == 0:
-        for (query_img, support_img, mask, y) in tqdm(test_loader):
-            if count >= 10:  # Process only the first 10 items
-                break;
-            #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
-            numpy_array = np.stack([t.numpy() for t in support_img])
-            numpy_array = numpy_array.squeeze(1)
-            support_imgs.append(numpy_array)
-            print(count)
-            count +=1
+    # count =0
+    # if len(support_imgs) == 0:
+    #     for (query_img, support_img, mask, y) in tqdm(test_loader):
+    #         if count >= 10:  # Process only the first 10 items
+    #             break;
+    #         #Getting only 10 support sets otherwise we have 83 suport sets 1 set for each test image
+    #         numpy_array = np.stack([t.numpy() for t in support_img])
+    #         numpy_array = numpy_array.squeeze(1)
+    #         support_imgs.append(numpy_array)
+    #         print(count)
+    #         count +=1
         
 
     
     new_size = [224, 224]
-    support_img = support_imgs[cur_epoch]
+    # support_img = support_imgs[cur_epoch]
     # The shape support_img should be [2,3,224,224] [k, C, H, W]
 
-    # support_img = fixed_fewshot_list[cur_epoch]
+    support_img = fixed_fewshot_list[cur_epoch]
     
-    support_img = torch.from_numpy(support_img)
+    # support_img = torch.from_numpy(support_img)
     print("support_img", support_img.shape)
 
     count=0
@@ -291,7 +291,12 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     #Add brightness
     bright_img = brightness(support_img)
     augment_support_img = torch.cat([augment_support_img, bright_img], dim=0)
-
+    # Add Madderm transform
+    maddern_img = maddern(support_img, alpha=0.48)
+    augment_support_img = torch.cat([augment_support_img, maddern_img], dim=0)
+    # Add MaddermHS transform
+    maddern_hs_img = maddern_hs(support_img, alpha=0.48)
+    augment_support_img = torch.cat([augment_support_img, maddern_hs_img], dim=0)
     print("augment_support_img",augment_support_img.shape)
     
     """Visualize the augmented Images"""
@@ -339,7 +344,7 @@ def test(args, models, cur_epoch,fixed_fewshot_list,support_imgs,test_loader, **
     global memory_bank
 
     #Applying core-set subsampling to get the embedding
-    memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.01)
+    memory_bank = subsample_embedding(embedding_vectors, coreset_sampling_ratio= 0.1)
     print("memory_bank",memory_bank.shape)
 
     # calculate multivariate Gaussian distribution
