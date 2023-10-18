@@ -26,7 +26,7 @@ import matplotlib.pyplot as plt
 
 warnings.filterwarnings("ignore")
 use_cuda = torch.cuda.is_available()
-device = torch.device('cuda' if use_cuda else 'cpu')
+device = torch.device('cuda:3' if use_cuda else 'cpu')
 
 def main():
     parser = argparse.ArgumentParser(description='Registration based Few-Shot Anomaly Detection')
@@ -40,7 +40,7 @@ def main():
     parser.add_argument('--momentum', type=float, default=0.9, help='momentum of SGD')
     parser.add_argument('--seed', type=int, default=668, help='manual seed')
     parser.add_argument('--shot', type=int, default=2, help='shot count')
-    parser.add_argument('--inferences', type=int, default=10, help='number of rounds per inference')
+    parser.add_argument('--inferences', type=int, default=1, help='number of rounds per inference')
     parser.add_argument('--stn_mode', type=str, default='rotation_scale',
                         help='[affine, translation, rotation, scale, shear, rotation_scale, translation_scale, rotation_translation, rotation_translation_scale]')
     args = parser.parse_args()
@@ -94,7 +94,9 @@ def main():
     img_roc_auc_old = 0.0
     per_pixel_rocauc_old = 0.0
     print('Loading Fixed Support Set')
-    fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
+    # fixed_fewshot_list = torch.load(f'./support_set/mpdd/{args.obj}/{args.shot}_{args.inferences}.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_w_2_1.pt')
+
     print_log((f'---------{args.stn_mode}--------'), log)
 
     for epoch in range(1, args.epochs + 1):
