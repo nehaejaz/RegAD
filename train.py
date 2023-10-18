@@ -12,7 +12,7 @@ from datasets.mvtec import FSAD_Dataset_train, FSAD_Dataset_test
 from utils.utils import time_file_str, time_string, convert_secs2time, AverageMeter, print_log
 from models.siamese import Encoder, Predictor
 from models.stn import stn_net
-from models.convnext import convnext_tiny
+from models.convnext import convnext_tiny, convnext_small
 from losses.norm_loss import CosLoss
 from utils.funcs import embedding_concat, mahalanobis_torch, rot_img, translation_img, hflip_img, rot90_img, grey_img
 from utils.KCenterGreedy import KCenterGreedy
@@ -60,7 +60,7 @@ def main():
     if not os.path.exists(args.save_dir):
         os.makedirs(args.save_dir)
 
-    args.save_model_dir = './logs_mpdd/' + args.stn_mode + '/' + str(args.shot) + '/' + args.obj + '/'
+    args.save_model_dir = './logs_mpdd/' + args.stn_mode + '/' + str(args.shot) + '/' + args.obj + "sm_con_stn" + '/'
     if not os.path.exists(args.save_model_dir):
         os.makedirs(args.save_model_dir)
 
@@ -73,6 +73,8 @@ def main():
     ENC = Encoder().to(device)
     PRED = Predictor().to(device)
     CON = convnext_tiny(args).to(device)
+    # CON = convnext_small(args).to(device)
+
 
     STN_optimizer = optim.SGD(STN.parameters(), lr=args.lr, momentum=args.momentum)
     ENC_optimizer = optim.SGD(ENC.parameters(), lr=args.lr, momentum=args.momentum)
@@ -91,7 +93,7 @@ def main():
     test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
 
     # start training
-    save_name = os.path.join(args.save_model_dir, '{}_{}_{}_model_convnext.pt'.format(args.obj, args.shot, args.stn_mode))
+    save_name = os.path.join(args.save_model_dir, '{}_{}_{}_model_small_convnext_stn.pt'.format(args.obj, args.shot, args.stn_mode))
     start_time = time.time()
     epoch_time = AverageMeter()
     img_roc_auc_old = 0.0

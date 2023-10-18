@@ -201,7 +201,7 @@ class ConvNeXt(nn.Module):
         head_init_scale (float): Init scaling value for classifier weights and biases. Default: 1.
     """
     def __init__(self, args, in_chans=3, num_classes=1000, 
-                 depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], stn=False, drop_path_rate=0., 
+                 depths=[3, 3, 9, 3], dims=[96, 192, 384, 768], stn=True, drop_path_rate=0., 
                  layer_scale_init_value=1e-6, head_init_scale=1., 
                  ):
         super().__init__()
@@ -358,8 +358,8 @@ def convnext_tiny(args, pretrained=True,in_22k=False, **kwargs):
     return model
 
 @register_model
-def convnext_small(pretrained=False,in_22k=False, **kwargs):
-    model = ConvNeXt(depths=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)
+def convnext_small(args,pretrained=False,in_22k=False, **kwargs):
+    model = ConvNeXt(args,depths=[3, 3, 27, 3], dims=[96, 192, 384, 768], **kwargs)
     if pretrained:
         url = model_urls['convnext_small_22k'] if in_22k else model_urls['convnext_small_1k']
         checkpoint = torch.hub.load_state_dict_from_url(url=url, map_location="cpu")

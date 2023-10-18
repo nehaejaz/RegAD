@@ -11,7 +11,7 @@ from datasets.mvtec import FSAD_Dataset_train, FSAD_Dataset_test
 from utils.utils import time_file_str, time_string, convert_secs2time, AverageMeter, print_log
 from models.siamese import Encoder, Predictor
 from models.stn import stn_net
-from models.convnext import convnext_tiny
+from models.convnext import convnext_tiny, convnext_small
 from losses.norm_loss import CosLoss
 from utils.funcs import embedding_concat, mahalanobis_torch, rot_img, translation_img, hflip_img, rot90_img, grey_img, contrast, brightness
 from utils.KCenterGreedy import KCenterGreedy
@@ -60,12 +60,13 @@ def main():
     STN = stn_net(args).to(device)
     ENC = Encoder().to(device)
     PRED = Predictor().to(device)
-    CON = convnext_tiny(args).to(device)
+    # CON = convnext_tiny(args).to(device)
+    CON = convnext_small(args).to(device)
 
     
     # load models
     #For custom model bring them from the logs folder
-    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{"bracket_black"}/{"bracket_black"}_{args.shot}_rotation_scale_model_convnext.pt'
+    CKPT_name = f'./logs_mpdd/rotation_scale/{args.shot}/{"bracket_black"}/{"bracket_black"}_{args.shot}_rotation_scale_model_small_convnext_stn.pt'
 
     # CKPT_name = f'./save_checkpoints/{args.shot}/{args.obj}/{args.obj}_{args.shot}_rotation_scale_model.pt'
     model_CKPT = torch.load(CKPT_name)
