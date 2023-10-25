@@ -81,10 +81,11 @@ def brightness(x):
 
 def maddern(x,alpha):
     eps= 1e-7
-    maddern = 0.5 + torch.log(x[:,1,:,:]+eps) - alpha * torch.log(x[:,2,:,:]+eps) - (1-alpha)*torch.log(x[:,0,:,:]+eps)
-    x = maddern.view([x.shape[0],1,x.shape[2], x.shape[3]])
-    maddern_img_3_channels = torch.cat([x]*3, dim=1)
-    return maddern_img_3_channels
+    maddern = 0.5 + torch.log(x[1,:,:]+eps) - alpha * torch.log(x[2,:,:]+eps) - (1-alpha)*torch.log(x[0,:,:]+eps)
+    x = maddern.view([1,x.shape[1], x.shape[2]])
+    print("shape",x.shape)
+   # maddern_img_3_channels = torch.cat([x]*3, dim=1)
+    return x
 
 def maddern_hs(x,alpha):
     maddern_out = maddern(x,alpha)

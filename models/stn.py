@@ -283,5 +283,16 @@ def stn_net(args, pretrained=True, **kwargs):
     """
     model = ResNet(args, BasicBlock, [2, 2, 2, 2], **kwargs)
     if pretrained:
+        print(pretrained)
         model.load_state_dict(model_zoo.load_url(model_urls['resnet18']), strict=False)
+        # Copy the weights from the original conv1
+        weight = model.conv1.weight.clone()
+        # Add an extra 2D convolutional layer for the 4-channel input
+        model.conv1 = nn.Conv2d(4, 64, kernel_size=7, stride=2, padding=3, bias=False)
+        # Copy the pre-trained weights to the new layer
+        with torch.no_grad():
+            model.conv1.weight[:, :3] = weight
+            model.conv1.weight[:, 3] = model.conv1.weight[:, 0]
+        # for l in list(model.named_parameters()):
+        #     print(l[0], ':', l[1].detach().numpy().shape)
     return model

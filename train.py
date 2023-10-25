@@ -32,7 +32,7 @@ def main():
     parser = argparse.ArgumentParser(description='Registration based Few-Shot Anomaly Detection')
     parser.add_argument('--obj', type=str, default='bottle')
     parser.add_argument('--data_type', type=str, default='mvtec')
-    parser.add_argument('--data_path', type=str, default='./MPDD/')
+    parser.add_argument('--data_path', type=str, default='./MVTec/')
     parser.add_argument('--epochs', type=int, default=50, help='maximum training epochs')
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--img_size', type=int, default=224)
@@ -217,8 +217,10 @@ def train(models, epoch, train_loader, optimizers, log):
         STN_optimizer.step()
         ENC_optimizer.step()
         PRED_optimizer.step()
-
+        
+    train_loss_dict[epoch] = total_losses.avg
     print_log(('Train Epoch: {} Total_Loss: {:.6f}'.format(epoch, total_losses.avg)), log)
+    
 
 
 def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
@@ -289,8 +291,8 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     flipped_img = hflip_img(support_img)
     augment_support_img = torch.cat([augment_support_img, flipped_img], dim=0)
     # rgb to grey img
-    greyed_img = grey_img(support_img)
-    augment_support_img = torch.cat([augment_support_img, greyed_img], dim=0)
+    # greyed_img = grey_img(support_img)
+    # augment_support_img = torch.cat([augment_support_img, greyed_img], dim=0)
     # rotate img in 90 degree
     for angle in [1,2,3]:
         rotate90_img = rot90_img(support_img, angle)

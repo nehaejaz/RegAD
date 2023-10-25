@@ -6,7 +6,8 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from torchvision import transforms
-
+from utils.funcs import maddern
+import cv2
 CLASS_NAMES = [
      'bracket_black', 'bracket_brown', 'bracket_white', 'connector', 'metal_plate', 'tubes'
     #   'bottle', 'cable', 'capsule', 'carpet', 'grid', 'hazelnut', 'leather', 'metal_nut', 'pill', 'screw', 'tile',
@@ -48,6 +49,10 @@ class FSAD_Dataset_train(Dataset):
         for i in range(len(query_list)):
             image = Image.open(query_list[i]).convert('RGB')
             image = self.transform_x(image) #image_shape torch.Size([3, 224, 224])
+            #add 4th Channel in support image
+            print("shape",image.shape)
+            maddern_img = maddern(image, alpha=0.48)
+            image = torch.cat((image, maddern_img), dim=0)
             image = image.unsqueeze(dim=0) #image_shape torch.Size([1, 3, 224, 224])
             if query_img is None:
                 query_img = image
@@ -57,6 +62,9 @@ class FSAD_Dataset_train(Dataset):
             for k in range(self.shot):
                 image = Image.open(support_list[i][k]).convert('RGB')
                 image = self.transform_x(image)
+                # add 4th Channel in support image
+                maddern_img = maddern(image, alpha=0.48)
+                image = torch.cat((image, maddern_img), dim=0)
                 image = image.unsqueeze(dim=0) #image_shape torch.Size([1, 3, 224, 224])
                 if support_sub_img is None:
                     support_sub_img = image
@@ -72,6 +80,8 @@ class FSAD_Dataset_train(Dataset):
             support_sub_img = None
 
         mask = torch.zeros([self.batch, self.resize, self.resize])
+        print("shapes",query_img.shape, support_img.shape)
+
         return query_img, support_img, mask
 
     def __len__(self):
@@ -88,8 +98,8 @@ class FSAD_Dataset_train(Dataset):
                 img_dir = os.path.join(self.dataset_path, class_name_one, phase, 'good')
                 img_types = sorted(os.listdir(img_dir))
                 for img_type in img_types:
-                    img_type_dir = os.path.join(img_dir, img_type)
-                    data_img[class_name_one].append(img_type_dir)
+                        img_type_dir = os.path.join(img_dir, img_type)
+                        data_img[class_name_one].append(img_type_dir)
                 random.shuffle(data_img[class_name_one])
 
         query_dir, support_dir = [], []
@@ -127,8 +137,8 @@ class FSAD_Dataset_train(Dataset):
                 img_dir = os.path.join(self.dataset_path, class_name_one, phase, 'good')
                 img_types = sorted(os.listdir(img_dir))
                 for img_type in img_types:
-                    img_type_dir = os.path.join(img_dir, img_type)
-                    data_img[class_name_one].append(img_type_dir)
+                        img_type_dir = os.path.join(img_dir, img_type)
+                        data_img[class_name_one].append(img_type_dir)
                 random.shuffle(data_img[class_name_one])
 
         query_dir, support_dir = [], []
@@ -188,12 +198,19 @@ class FSAD_Dataset_test(Dataset):
         query_one, support_one, mask_one = self.query_dir[idx], self.support_dir[idx], self.query_mask[idx]
         if not ("/.DS_Store" in query_one):
             query_img = Image.open(query_one).convert('RGB')
+            r_channel, g_channel, b_channel = query_img.split()
             query_img = self.transform_x(query_img)
+            maddern_img = maddern(query_img, alpha=0.48)
+            # add 4th Channel in support image     
+            query_img = torch.cat((query_img, maddern_img), dim=0)
 
         support_img = []
         for k in range(self.shot):
             support_img_one = Image.open(support_one[k]).convert('RGB')
             support_img_one = self.transform_x(support_img_one)
+             # add 4th Channel in support image
+            maddern_img = maddern(support_img_one, alpha=0.48)
+            support_img_one = torch.cat((support_img_one, maddern_img), dim=0)
             support_img.append(support_img_one)
 
         if 'good' in mask_one:
