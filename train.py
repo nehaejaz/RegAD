@@ -88,9 +88,9 @@ def main():
     print('Loading Datasets')
     kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
     train_dataset = FSAD_Dataset_train(args.data_path, class_name=args.obj, is_train=True, resize=args.img_size, shot=args.shot, batch=args.batch_size)
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, **kwargs)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
     test_dataset = FSAD_Dataset_test(args.data_path, class_name=args.obj, is_train=False, resize=args.img_size, shot=args.shot)
-    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=1, shuffle=False, **kwargs)
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, **kwargs)
 
     # start training
     save_name = os.path.join(args.save_model_dir, '{}_{}_{}_model_small_convnext_stn.pt'.format(args.obj, args.shot, args.stn_mode))
@@ -100,7 +100,7 @@ def main():
     per_pixel_rocauc_old = 0.0
     print('Loading Fixed Support Set')
     # fixed_fewshot_list = torch.load(f'./support_set/{args.obj}/{args.shot}_{args.inferences}.pt')
-    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_w_2_1.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/b_b_2_1.pt')
     print_log((f'---------{args.stn_mode}--------'), log)
 
     for epoch in range(1, args.epochs + 1):
@@ -156,7 +156,7 @@ def main():
         start_time = time.time()
         train(models, epoch, train_loader, optimizers, log)
         train_dataset.shuffle_dataset()
-        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, **kwargs)
+        train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
         
     log.close()
 
@@ -183,8 +183,9 @@ def train(models, epoch, train_loader, optimizers, log):
 
 
         query_img = query_img.squeeze(0).to(device)
-        # print("query_img", query_img.shape)
+        print("query_img", query_img.shape)
         query_feat = CON(query_img)
+        # print(query_img.shape)
         """The shape of query_feat is [32, 256, 14, 14] [B,C,H,W]"""
 
         # print("query_feat", query_feat.shape)
@@ -381,7 +382,7 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
         gt_list.extend(y.cpu().detach().numpy())
         mask_list.extend(mask.cpu().detach().numpy())
 
-        # print("query_img",query_img.shape)
+        print("query_img",query_img.shape)
         
         # model prediction
         query_feat = CON(query_img.to(device))
