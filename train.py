@@ -13,6 +13,7 @@ from utils.utils import time_file_str, time_string, convert_secs2time, AverageMe
 from models.siamese import Encoder, Predictor
 from models.stn import stn_net
 from models.convnext import convnext_tiny
+from models.convnext_huggingface import HF_Convnext
 from losses.norm_loss import CosLoss
 from utils.funcs import embedding_concat, mahalanobis_torch, rot_img, translation_img, hflip_img, rot90_img, grey_img
 from utils.KCenterGreedy import KCenterGreedy
@@ -73,14 +74,17 @@ def main():
     ENC = Encoder().to(device)
     PRED = Predictor().to(device)
     CON = convnext_tiny(args).to(device)
+    HF_CON = HF_Convnext(args).to(device)
 
     STN_optimizer = optim.SGD(STN.parameters(), lr=args.lr, momentum=args.momentum)
     ENC_optimizer = optim.SGD(ENC.parameters(), lr=args.lr, momentum=args.momentum)
     PRED_optimizer = optim.SGD(PRED.parameters(), lr=args.lr, momentum=args.momentum)
     CON_optimizer = optim.SGD(CON.parameters(), lr=args.lr, momentum=args.momentum)
+    HF_CON_optimizer = optim.SGD(HF_CON.parameters(), lr=args.lr, momentum=args.momentum)
 
-    models = [STN, ENC, PRED,CON]
-    optimizers = [STN_optimizer, ENC_optimizer, PRED_optimizer,CON_optimizer ]
+
+    models = [STN, ENC, PRED,CON, HF_CON]
+    optimizers = [STN_optimizer, ENC_optimizer, PRED_optimizer,CON_optimizer, HF_CON_optimizer ]
     init_lrs = [args.lr, args.lr, args.lr]
 
     print('Loading Datasets')
@@ -97,7 +101,7 @@ def main():
     img_roc_auc_old = 0.0
     per_pixel_rocauc_old = 0.0
     print('Loading Fixed Support Set')
-    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/m_2_1.pt')
+    fixed_fewshot_list = torch.load(f'./mpdd_supp_set/2/t_2_1.pt')
     print_log((f'---------{args.stn_mode}--------'), log)
 
     for epoch in range(1, args.epochs + 1):
@@ -150,6 +154,7 @@ def main():
 
         epoch_time.update(time.time() - start_time)
         start_time = time.time()
+        exit()
         train(models, epoch, train_loader, optimizers, log)
         train_dataset.shuffle_dataset()
         train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=True, **kwargs)
@@ -232,11 +237,14 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     ENC = models[1]
     PRED = models[2]
     CON = models[3]
+    HF_CON = models[4]
 
     STN.eval()
     ENC.eval()
     PRED.eval()
     CON.eval()
+    HF_CON.eval()
+
 
     train_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', []), ('layer4', [])])
     test_outputs = OrderedDict([('layer1', []), ('layer2', []), ('layer3', []), ('layer4', [])])
@@ -308,22 +316,37 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
     # torch version
 
     with torch.no_grad():
-        support_feat = CON(augment_support_img.to(device))
-        # a = STN(augment_support_img.to(device))
+        '''For My Custom Convnext Model'''
+        # support_feat = CON(augment_support_img.to(device))
+        # print(support_feat.shape)
+        # print(CON.output_layers[0].shape)
+        # print(CON.output_layers[1].shape)
+        # print(CON.output_layers[2].shape)
+        # print(CON.output_layers[3].shape)
+        
+        '''For HF Convnext Model'''
+        output = HF_CON(augment_support_img.to(device))
+        support_feat = output.last_hidden_state
         print(support_feat.shape)
-        # print(STN.stn1_output.shape)
-        print(CON.output_layers[0].shape)
-        print(CON.output_layers[1].shape)
-        print(CON.output_layers[2].shape)
-        print(CON.output_layers[3].shape)
-        # quit()
-        # last_hidden_states = support_feat.last_hidden_state
-        # print(last_hidden_states.shape)
+        out_features = output.hidden_states
+        # print(out_features[0].shape)
+        print(out_features[1].shape)
+        print(out_features[2].shape)
+        print(out_features[3].shape)
+        print(out_features[4].shape)
+        
     support_feat = torch.mean(support_feat, dim=0, keepdim=True)
-    train_outputs['layer1'].append(CON.output_layers[0])
-    train_outputs['layer2'].append(CON.output_layers[1])
-    train_outputs['layer3'].append(CON.output_layers[2])
-    train_outputs['layer4'].append(CON.output_layers[3])
+    # train_outputs['layer1'].append(CON.output_layers[0])
+    # train_outputs['layer2'].append(CON.output_layers[1])
+    # train_outputs['layer3'].append(CON.output_layers[2])
+    # train_outputs['layer4'].append(CON.output_layers[3])
+    
+    train_outputs['layer1'].append(out_features[1])
+    train_outputs['layer2'].append(out_features[2])
+    train_outputs['layer3'].append(out_features[3])
+    train_outputs['layer4'].append(out_features[4])
+
+
 
 
     for k, v in train_outputs.items():
@@ -380,7 +403,11 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
         # print("query_img",query_img.shape)
         
         # model prediction
-        query_feat = CON(query_img.to(device))
+        
+        # query_feat = CON(query_img.to(device))
+        output = HF_CON(query_img.to(device))
+        query_feat = output.last_hidden_state
+        out_features = output.hidden_states
         # print(query_feat.shape)
         z1 = ENC(query_feat)
         z2 = ENC(support_feat)
@@ -391,10 +418,15 @@ def test(models, cur_epoch, fixed_fewshot_list, test_loader, **kwargs):
         loss_reshape = F.interpolate(loss.unsqueeze(1), size=query_img.size(2), mode='bilinear',align_corners=False).squeeze(0)
         score_map_list.append(loss_reshape.cpu().detach().numpy())
 
-        test_outputs['layer1'].append(CON.output_layers[0])
-        test_outputs['layer2'].append(CON.output_layers[1])
-        test_outputs['layer3'].append(CON.output_layers[2])
-        test_outputs['layer4'].append(CON.output_layers[3])
+        # test_outputs['layer1'].append(CON.output_layers[0])
+        # test_outputs['layer2'].append(CON.output_layers[1])
+        # test_outputs['layer3'].append(CON.output_layers[2])
+        # test_outputs['layer4'].append(CON.output_layers[3])
+        
+        test_outputs['layer1'].append(out_features[1])
+        test_outputs['layer2'].append(out_features[2])
+        test_outputs['layer3'].append(out_features[3])
+        test_outputs['layer4'].append(out_features[4])
 
     for k, v in test_outputs.items():
         test_outputs[k] = torch.cat(v, 0)
